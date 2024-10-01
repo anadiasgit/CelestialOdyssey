@@ -19,17 +19,21 @@ void ACOPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//Get the local player subsystem
-	if (APlayerController* PlayerController = Cast<APlayerController>(GetOwner()))
+	// Ensure PlayerInputMappingContext is valid
+	if (!PlayerInputMappingContext)
 	{
-		UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer());
-		if (Subsystem)
-		{
-			//Add the player input mapping context
-			Subsystem->AddMappingContext(PlayerInputMappingContext, 0);
-		}
+		return;
 	}
+
+	// Get the local player subsystem
+	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+	{
+		// Add the player input mapping context
+		Subsystem->AddMappingContext(PlayerInputMappingContext, 0);
+	}
+
 }
+
 
 /**
  * Called to bind input actions

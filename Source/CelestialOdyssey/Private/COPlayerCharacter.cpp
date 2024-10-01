@@ -12,14 +12,14 @@ ACOPlayerCharacter::ACOPlayerCharacter()
 	MoveSpeed = 600.0f;
 	JumpHeight = 420.0f;
 	CrouchSpeed = 300.0f;
-	SprintSpeed = 1000.0f; 
-	bIsSprinting = false;  
+	SprintSpeed = 1000.0f;
+	bIsSprinting = false;
 
 	// Create the spring arm component
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = CameraArmLength;  // Set from the variable
-	CameraBoom->bUsePawnControlRotation = true;
+	CameraBoom->TargetArmLength = CameraArmLength;
+	CameraBoom->bUsePawnControlRotation = false; 
 
 	// Create the camera component
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
