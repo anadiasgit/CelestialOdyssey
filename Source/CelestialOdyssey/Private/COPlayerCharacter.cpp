@@ -14,6 +14,7 @@ ACOPlayerCharacter::ACOPlayerCharacter()
 	CrouchSpeed = 300.0f;
 	SprintSpeed = 1000.0f;
 	bIsSprinting = false;
+	bIsFacingRight = true;
 
 	// Create the spring arm component
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -50,6 +51,24 @@ void ACOPlayerCharacter::Tick(float DeltaTime)
  */
 void ACOPlayerCharacter::MoveRight(float Value)
 {
+	if (Value != 0.0f)
+	{
+		//Determine which way the player is facing based on input direction
+		bool bIsMovingRight = Value > 0.0f;
+
+		//Flip the character if the input direction has changed
+		if (bIsMovingRight != bIsFacingRight)
+		{
+			bIsFacingRight = bIsMovingRight;
+
+			//Rotate the character's mesh 180 degrees to face the other direction
+			FRotator NewRotation = GetMesh()->GetComponentRotation();
+			NewRotation.Yaw += 180.0f;
+			GetMesh()->SetWorldRotation(NewRotation);
+		}
+	}
+
+	//Handle crouching and sprinting logic
 	if (bIsCrouched)
 	{
 		//Move slower when crouching

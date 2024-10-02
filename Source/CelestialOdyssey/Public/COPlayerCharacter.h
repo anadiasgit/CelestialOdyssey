@@ -64,6 +64,10 @@ protected:
 
 	bool bIsSprinting;
 
+	//Keeps track of the direction the character is currently facing
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	bool bIsFacingRight;
+
 	// Spring Arm for camera follow
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	class USpringArmComponent* CameraBoom;
