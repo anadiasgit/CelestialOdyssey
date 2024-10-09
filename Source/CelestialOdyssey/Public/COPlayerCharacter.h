@@ -49,6 +49,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	void StopSprint();
 
+	//Getter functions to aid in animation blueprint
+	UFUNCTION(BlueprintPure, Category = "Movement")
+	bool GetIsJumpingMoving() const { return bIsJumpingMoving; }
+
+	UFUNCTION(BlueprintPure, Category = "Movement")
+	bool GetIsJumpingIdle() const { return bIsJumpingIdle; }
+
+	UFUNCTION(BlueprintPure, Category = "Movement")
+	bool GetIsFalling() const { return bIsFalling; }
+
 protected:
 	//Player's default jump height
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
@@ -67,6 +77,12 @@ protected:
 	//Keeps track of the direction the character is currently facing
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
 	bool bIsFacingRight;
+	
+	//Keeps track of jumping for animation purposes and distinguishes jumping from falling
+	bool bIsJumpingMoving = false;
+	bool bIsJumpingIdle = false;
+
+	bool bIsFalling = false;
 
 	// Spring Arm for camera follow
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")

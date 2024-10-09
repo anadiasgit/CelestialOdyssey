@@ -42,6 +42,22 @@ void ACOPlayerCharacter::BeginPlay()
 void ACOPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (GetCharacterMovement()->IsFalling())
+	{
+		if (!bIsJumpingMoving && !bIsJumpingIdle)
+		{
+			// Character is falling without a jump
+			bIsFalling = true;
+		}
+	}
+	else
+	{
+		// Character is on the ground
+		bIsFalling = false;
+		bIsJumpingMoving = false;
+		bIsJumpingIdle = false;
+	}
 }
 
 /**
@@ -53,25 +69,23 @@ void ACOPlayerCharacter::MoveRight(float Value)
 {
 	if (Value != 0.0f)
 	{
-		//Determine which way the player is facing based on input direction
 		bool bIsMovingRight = Value > 0.0f;
 
-		//Flip the character if the input direction has changed
+		// Only trigger turning when the input direction has changed
 		if (bIsMovingRight != bIsFacingRight)
 		{
 			bIsFacingRight = bIsMovingRight;
 
-			//Rotate the character's mesh 180 degrees to face the other direction
+			// Rotate the character's mesh 180 degrees to face the other direction
 			FRotator NewRotation = GetMesh()->GetComponentRotation();
 			NewRotation.Yaw += 180.0f;
 			GetMesh()->SetWorldRotation(NewRotation);
 		}
 	}
 
-	//Handle crouching and sprinting logic
+	// handle crouching and sprinting
 	if (bIsCrouched)
 	{
-		//Move slower when crouching
 		AddMovementInput(FVector(1.0f, 0.0f, 0.0f), Value * CrouchSpeed);
 	}
 	else if (bIsSprinting)
@@ -80,9 +94,10 @@ void ACOPlayerCharacter::MoveRight(float Value)
 	}
 	else
 	{
-		Super::MoveRight(Value);
+		AddMovementInput(FVector(1.0f, 0.0f, 0.0f), Value);
 	}
 }
+
 
 /**
  *  Handles player jump start input.
@@ -91,6 +106,19 @@ void ACOPlayerCharacter::StartJump()
 {
 	GetCharacterMovement()->JumpZVelocity = JumpHeight;
 	ACharacter::Jump();
+	// Update booleans based on movement
+	if (GetCharacterMovement()->Velocity.Size() > 0.0f)
+	{
+		bIsJumpingMoving = true;
+		bIsJumpingIdle = false;
+	}
+	else
+	{
+		bIsJumpingMoving = false;
+		bIsJumpingIdle = true;
+	}
+
+	bIsFalling = false;
 }
 
 /**
@@ -99,6 +127,8 @@ void ACOPlayerCharacter::StartJump()
 void ACOPlayerCharacter::StopJump()
 {
 	ACharacter::StopJumping();
+	bIsJumpingMoving = false;
+	bIsJumpingIdle = false;
 }
 
 /**
