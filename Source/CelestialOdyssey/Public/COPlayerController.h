@@ -37,6 +37,14 @@ protected:
 	void StopJump(const FInputActionValue& Value);
 	void StartCrouch(const FInputActionValue& Value);
 	void StopCrouch(const FInputActionValue& Value);
+	void ActivateDashAbility(const FInputActionValue& Value);
+	void ActivateGroundSlamAbility(const FInputActionValue& Value);
+	void ActivateGravityShiftAbility(const FInputActionValue& Value);
+	void ActivateCosmicStrikeAbility(const FInputActionValue& Value);
+	void ActivateCrystalGrowthAbility(const FInputActionValue& Value);
+	void ActivateCrystalShatterAbility(const FInputActionValue& Value);
+	void ActivateVineWhipAbility(const FInputActionValue& Value);
+	void ActivateLunarForestFuryAbility(const FInputActionValue& Value);
 
 	//Input Mapping Context for Player
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -54,4 +62,29 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* SprintAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category ="Input")
+	UInputAction* DashAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* GroundSlamAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* GravityShiftAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* CosmicStrikeAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* CrystalGrowthAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* CrystalShatterAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* VineWhipAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* LunarForestFuryAction;
+
 };

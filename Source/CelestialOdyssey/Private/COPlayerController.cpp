@@ -1,6 +1,8 @@
 #include "COPlayerController.h"
 #include "GameFramework/Pawn.h"
 #include "COPlayerCharacter.h"
+#include "COPlayerState.h"
+#include "AbilitySystemComponent.h"
 
 
 /**
@@ -58,6 +60,17 @@ void ACOPlayerController::SetupInputComponent()
 		// Bind sprinting
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ACOPlayerController::StartSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ACOPlayerController::StopSprint);
+
+		//Bind Abilities
+		EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateDashAbility);
+		EnhancedInputComponent->BindAction(GroundSlamAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateGroundSlamAbility);
+		EnhancedInputComponent->BindAction(GravityShiftAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateGravityShiftAbility);
+		EnhancedInputComponent->BindAction(CosmicStrikeAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCosmicStrikeAbility);
+		EnhancedInputComponent->BindAction(CrystalGrowthAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCrystalGrowthAbility);
+		EnhancedInputComponent->BindAction(CrystalShatterAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCrystalShatterAbility);
+		EnhancedInputComponent->BindAction(VineWhipAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateVineWhipAbility);
+		EnhancedInputComponent->BindAction(LunarForestFuryAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateLunarForestFuryAbility);
+
 	}
 }
 
@@ -171,6 +184,204 @@ void ACOPlayerController::StopSprint(const FInputActionValue& Value)
 		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
 		{
 			PlayerCharacter->StopSprint();
+		}
+	}
+}
+
+/**
+ * @brief Activates the Celestial Dash ability.
+ *
+ * This function attempts to activate the Celestial Dash ability for the player character
+ * by using the ability system component attached to the character.
+ *
+ * @param Value Unused input value, required by the input binding system.
+ */
+void ACOPlayerController::ActivateDashAbility(const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				// Get the player state
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState && COPlayerState->CelestialDashAbilityClass)
+				{
+					ASC->TryActivateAbilityByClass(COPlayerState->CelestialDashAbilityClass);
+				}
+			}
+		}
+	}
+}
+
+/**
+ * @brief Activates the Ground Slam ability.
+ *
+ * This function attempts to activate the Ground Slam ability for the player character
+ * by using the ability system component attached to the character.
+ *
+ * @param Value Unused input value, required by the input binding system.
+ */
+void ACOPlayerController::ActivateGroundSlamAbility(const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				// Get the player state
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState && COPlayerState->GroundSlamAbilityClass)
+				{
+					ASC->TryActivateAbilityByClass(COPlayerState->GroundSlamAbilityClass);
+				}
+			}
+		}
+	}
+}
+
+/**
+ * @brief Handles activation of the Gravity Shift ability.
+ *
+ * @param Value Unused input value, required by the Enhanced Input System.
+ */
+void ACOPlayerController::ActivateGravityShiftAbility(const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				// Get the player state
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState && COPlayerState->GroundSlamAbilityClass)
+				{
+					ASC->TryActivateAbilityByClass(COPlayerState->GravityShiftAbilityClass);
+				}
+			}
+		}
+	}
+
+}/**
+ * Handles activation of the Cosmic Strike ability.
+ *
+ * @param Value Unused input value, required by the Enhanced Input System.
+ */
+void ACOPlayerController::ActivateCosmicStrikeAbility(const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				// Get the player state
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState && COPlayerState->CosmicStrikeAbilityClass)
+				{
+					ASC->TryActivateAbilityByClass(COPlayerState->CosmicStrikeAbilityClass);
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Handles activation of the Crystal Growth ability.
+ *
+ * @param Value Unused input value, required by the Enhanced Input System.
+ */
+void ACOPlayerController::ActivateCrystalGrowthAbility(const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				// Get the player state
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState && COPlayerState->CrystalGrowthAbilityClass)
+				{
+					ASC->TryActivateAbilityByClass(COPlayerState->CrystalGrowthAbilityClass);
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Handles activation of the Crystal Shatter ability.
+ *
+ * @param Value Unused input value, required by the Enhanced Input System.
+ */
+void ACOPlayerController::ActivateCrystalShatterAbility(const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState && COPlayerState->CrystalShatterAbilityClass)
+				{
+					ASC->TryActivateAbilityByClass(COPlayerState->CrystalShatterAbilityClass);
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Handles activation of the Vine Whip ability.
+ *
+ * @param Value Unused input value, required by the Enhanced Input System.
+ */
+void ACOPlayerController::ActivateVineWhipAbility(const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				// Get the player state
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState && COPlayerState->VineWhipAbilityClass)
+				{
+					ASC->TryActivateAbilityByClass(COPlayerState->VineWhipAbilityClass);
+				}
+			}
+		}
+	}
+}
+
+/**
+ * @brief Handles the activation of the Lunar Forest Fury ability.
+ *
+ * This method allows the player to channel energy, triggering Lunar Forest Fury to damage and knockback enemies.
+ *
+ * @param Value Unused input value, required by the Enhanced Input System.
+ */
+void ACOPlayerController::ActivateLunarForestFuryAbility(const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				// Get the player state
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState && COPlayerState->LunarForestFuryAbilityClass)
+				{
+					ASC->TryActivateAbilityByClass(COPlayerState->LunarForestFuryAbilityClass);
+				}
+			}
 		}
 	}
 }

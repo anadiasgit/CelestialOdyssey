@@ -2,6 +2,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
+#include "GameFramework/PlayerState.h"
+#include "COPlayerState.h"
 
 /**
  *  Constructor
@@ -163,4 +165,17 @@ void ACOPlayerCharacter::StopSprint()
 {
 	bIsSprinting = false;
 	GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
+}
+
+/**
+ * @brief Gets the Ability System Component associated with the Player State.
+ *
+ * This function allows the character to interact with abilities that are owned by the Player State.
+ *
+ * @return Pointer to the UAbilitySystemComponent.
+ */
+UAbilitySystemComponent* ACOPlayerCharacter::GetAbilitySystemComponent() const
+{
+	ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+	return COPlayerState ? COPlayerState->GetAbilitySystemComponent() : nullptr;
 }

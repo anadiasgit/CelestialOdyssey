@@ -1,12 +1,15 @@
 #include "COGameMode.h"
 #include "COPlayerCharacter.h"
 #include "COPlayerController.h"
+#include "COPlayerState.h"
 
 /**
  *  Constructor
  */
 ACOGameMode::ACOGameMode()
 {
+	//Set default player state
+	PlayerStateClass = ACOPlayerState::StaticClass();
 }
 
 /**

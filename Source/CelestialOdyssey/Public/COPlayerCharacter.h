@@ -8,6 +8,8 @@
  *  Player-specific character class.
  *  Inherits basic movement functionality and adds player-specific properties.
  */
+class UAbilitySystemComponent;
+
 UCLASS()
 class CELESTIALODYSSEY_API ACOPlayerCharacter : public ACOBaseCharacter
 {
@@ -58,6 +60,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Movement")
 	bool GetIsFalling() const { return bIsFalling; }
+
+	//This function allows the character to interact with abilities that are owned by the Player State.
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const;
 
 protected:
 	//Player's default jump height
