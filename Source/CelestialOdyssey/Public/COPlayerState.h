@@ -4,6 +4,7 @@
 #include "GameFramework/PlayerState.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "COPlayerAttributeSet.h"
 #include "COPlayerState.generated.h"
 
 /**
@@ -24,6 +25,8 @@ public:
 	ACOPlayerState();
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	void InitializeAttributes();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
 	TSubclassOf<UGameplayAbility> CelestialDashAbilityClass;
@@ -49,12 +52,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Abilities")
 	TSubclassOf<UGameplayAbility> LunarForestFuryAbilityClass;
 
-
 protected:
 	virtual void BeginPlay() override;
 
-private:
+protected:
 	//Ability System Component that manages abilities for this player
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UAbilitySystemComponent* AbilitySystemComponent;
+
+	/** Attribute Set for player attributes */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
+	UCOPlayerAttributeSet* AttributeSet;
+
+	/** Data table for initializing attributes */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attributes")
+	UDataTable* AttributeDataTable;
 };

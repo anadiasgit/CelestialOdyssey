@@ -11,6 +11,9 @@ ACOPlayerState::ACOPlayerState()
 {
 	//Initialize the Ability System Component
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+
+	//Create the Attribute Set
+	AttributeSet = CreateDefaultSubobject<UCOPlayerAttributeSet>(TEXT("AttributeSet"));
 }
 
 /**
@@ -22,6 +25,10 @@ void ACOPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
 
+	//Initialize player attributes from the data table
+	InitializeAttributes();
+
+	//Grant abilities if the Ability System Component is valid
 	if (AbilitySystemComponent)
 	{
 		if (CelestialDashAbilityClass)
@@ -63,6 +70,20 @@ void ACOPlayerState::BeginPlay()
 		{
 			AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(LunarForestFuryAbilityClass, 1, static_cast<int32>(EAbilityInput::LunarForestFury)));
 		}
+	}
+}
+
+/**
+ * @brief Initializes the player's attributes using values from the data table.
+ *
+ * This function uses the Ability System Component to initialize the player's attribute set
+ * based on the attribute values defined in the data table.
+ */
+void ACOPlayerState::InitializeAttributes()
+{
+	if (AbilitySystemComponent && AttributeDataTable)
+	{
+		AbilitySystemComponent->InitStats(UCOPlayerAttributeSet::StaticClass(), AttributeDataTable);
 	}
 }
 
