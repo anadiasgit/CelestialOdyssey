@@ -1,5 +1,6 @@
 #include "CrystalShatterAbility.h"
 #include "GameFramework/Character.h"
+#include "AbilitySystemComponent.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
@@ -7,11 +8,11 @@
 /** Default constructor for UCrystalShatterAbility */
 UCrystalShatterAbility::UCrystalShatterAbility()
 {
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+    InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
-	//Set defaults
-	ShatterLevel = 1;
-	ShardDuration = 5.0f;
+    // Set defaults
+    ShatterLevel = 1;
+    ShardDuration = 5.0f;
 }
 
 /**
@@ -27,12 +28,16 @@ UCrystalShatterAbility::UCrystalShatterAbility()
  */
 void UCrystalShatterAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+    Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+    }
+
     ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
     if (Character)
     {
-        // TODO: Implement Gameplay Effect for cooldown (currently handled manually)
-
-        // Get the character's location for shattering crystals
         FVector ShatterLocation = Character->GetActorLocation();
 
         // Perform different actions based on shatter level
@@ -69,8 +74,60 @@ void UCrystalShatterAbility::ActivateAbility(const FGameplayAbilitySpecHandle Ha
         },
             ShardDuration,
             false);
-
-        // End the ability after activation
-        EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
     }
+
+    // End the ability after activation
+    EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
+}
+
+/**
+ * @brief Ends the ability and cleans up.
+ *
+ * @param Handle Handle that identifies the ability being ended.
+ * @param ActorInfo Information about the actor that activated the ability.
+ * @param ActivationInfo Information about the context of the ability ending.
+ * @param bReplicateEndAbility Whether to replicate the end ability event.
+ * @param bWasCancelled Whether the ability was cancelled.
+ */
+void UCrystalShatterAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->RemoveLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+    }
+}
+
+/**
+ * @brief Determines if the ability can be activated.
+ *
+ * This function checks the Ability System Component for active tags that would block this ability.
+ *
+ * @param Handle The handle to this specific instance of the ability.
+ * @param ActorInfo Information about the actor attempting to activate the ability.
+ * @param SourceTags Source tags used for additional checks.
+ * @param TargetTags Target tags used for additional checks.
+ * @param OptionalRelevantTags Tags that are optionally relevant to this ability.
+ * @return True if the ability can be activated, false otherwise.
+ */
+bool UCrystalShatterAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
+{
+    if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+    {
+        return false;
+    }
+
+    // Check tags in Ability System Component (ASC)
+    UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+    if (ASC)
+    {
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))) ||
+            ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
+        {
+            return false; // Prevent ability activation during cooldown or when casting another ability
+        }
+    }
+
+    return true;
 }

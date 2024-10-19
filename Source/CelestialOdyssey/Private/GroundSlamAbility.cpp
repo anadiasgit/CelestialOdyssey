@@ -1,17 +1,17 @@
 #include "GroundSlamAbility.h"
 #include "GameFramework/Character.h"
-#include "Kismet/KismetSystemLibrary.h"
+#include "AbilitySystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 /** Default constructor for UGroundSlamAbility */
 UGroundSlamAbility::UGroundSlamAbility()
 {
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+    InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
-	//Initialize default values
-	GroundSlamLevel = 1;
-	GroundSlamDamage = 50.0f; 
-	GroundSlamRadius = 300.0f;
+    // Initialize default values
+    GroundSlamLevel = 1;
+    GroundSlamDamage = 50.0f;
+    GroundSlamRadius = 300.0f;
 }
 
 /**
@@ -27,49 +27,108 @@ UGroundSlamAbility::UGroundSlamAbility()
  */
 void UGroundSlamAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
+    Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	if (Character)
-	{
-		//Update properties based on level progression
-		switch (GroundSlamLevel)
-		{
-			case 1:
-				GroundSlamDamage = 50.0f;
-				GroundSlamRadius = 300.0f;
-				break;
-			case 2:
-				GroundSlamDamage = 75.0f;
-				GroundSlamRadius = 450.0f;
-				break;
-			case 3:
-				GroundSlamDamage = 100.0f;
-				GroundSlamRadius = 600.0f;
-				break;
-			default:
-				GroundSlamDamage = 50.0f;
-				GroundSlamRadius = 300.0f;
-				break;
-		}
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+    }
 
-		//Create the shockwave effect using a sphere collision
-		FVector SlamLocation = Character->GetActorLocation();
-		TArray<AActor*> IgnoredActors;
-		IgnoredActors.Add(Character);
+    ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
+    if (Character)
+    {
+        // Update properties based on level progression
+        switch (GroundSlamLevel)
+        {
+        case 1:
+            GroundSlamDamage = 50.0f;
+            GroundSlamRadius = 300.0f;
+            break;
+        case 2:
+            GroundSlamDamage = 75.0f;
+            GroundSlamRadius = 450.0f;
+            break;
+        case 3:
+            GroundSlamDamage = 100.0f;
+            GroundSlamRadius = 600.0f;
+            break;
+        default:
+            GroundSlamDamage = 50.0f;
+            GroundSlamRadius = 300.0f;
+            break;
+        }
 
-		UGameplayStatics::ApplyRadialDamage(
-			this,
-			GroundSlamDamage,
-			SlamLocation,
-			GroundSlamRadius,
-			nullptr, //Use default damage type or create a custom damage class
-			IgnoredActors,
-			Character,
-			Character->GetController(),
-			false //Damage is the same throughout the entire shockwave radius
-		);
-	}
+        // Create the shockwave effect using a sphere collision
+        FVector SlamLocation = Character->GetActorLocation();
+        TArray<AActor*> IgnoredActors;
+        IgnoredActors.Add(Character);
 
-	//End the ability once it is used
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+        UGameplayStatics::ApplyRadialDamage(
+            this,
+            GroundSlamDamage,
+            SlamLocation,
+            GroundSlamRadius,
+            nullptr, // Use default damage type or create a custom damage class
+            IgnoredActors,
+            Character,
+            Character->GetController(),
+            false // Damage is the same throughout the entire shockwave radius
+        );
+    }
+
+    // End the ability once it is used
+    EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+/**
+ * @brief Ends the ground slam ability and removes relevant gameplay tags.
+ *
+ * @param Handle Handle that identifies the ability being ended.
+ * @param ActorInfo Information about the actor that activated the ability.
+ * @param ActivationInfo Information about the context of the ability ending.
+ * @param bReplicateEndAbility Should replication of the ability's end occur.
+ * @param bWasCancelled Was the ability manually canceled.
+ */
+void UGroundSlamAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->RemoveLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+    }
+}
+
+/**
+ * @brief Determines if the ability can be activated.
+ *
+ * This function checks the Ability System Component for active tags that would block this ability.
+ *
+ * @param Handle The handle to this specific instance of the ability.
+ * @param ActorInfo Information about the actor attempting to activate the ability.
+ * @param SourceTags Source tags used for additional checks.
+ * @param TargetTags Target tags used for additional checks.
+ * @param OptionalRelevantTags Tags that are optionally relevant to this ability.
+ * @return True if the ability can be activated, false otherwise.
+ */
+bool UGroundSlamAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, OUT FGameplayTagContainer* OptionalRelevantTags) const
+{
+    if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+    {
+        return false;
+    }
+
+    // Check tags in Ability System Component (ASC)
+    UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+    if (ASC)
+    {
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))) ||
+            ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
+        {
+            // Prevent ability activation if on cooldown or casting another ability
+            return false;
+        }
+    }
+
+    return true;
 }

@@ -1,14 +1,15 @@
 #include "CosmicStrikeAbility.h"
 #include "GameFramework/Character.h"
+#include "AbilitySystemComponent.h"
 #include "TimerManager.h"
 
 /** Default constructor for UCosmicStrikeAbility */
 UCosmicStrikeAbility::UCosmicStrikeAbility()
 {
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+    InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
-	//Set default combo level
-	ComboLevel = 1;
+    // Set default combo level
+    ComboLevel = 1;
 }
 
 /**
@@ -24,15 +25,24 @@ UCosmicStrikeAbility::UCosmicStrikeAbility()
  */
 void UCosmicStrikeAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
-	if (Character)
-	{
-		ExecuteCombo(Character);
+    Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+    // Add the casting tag
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+    }
+
+    ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
+    if (Character)
+    {
+        ExecuteCombo(Character);
 
         // TODO: Implement proper cooldown using Gameplay Effects and Tags
-		//End the ability, applying a cooldown
-		EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
-	}
+    }
+
+    // End the ability after activation
+    EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 }
 
 /**
@@ -74,4 +84,58 @@ void UCosmicStrikeAbility::ExecuteCombo(ACharacter* Character)
     }
 
     // TODO: Properly handle the combo state and cooldown using GAS features
+}
+
+/**
+ * @brief Checks if the ability can be activated.
+ *
+ * This function checks the Ability System Component for active tags that would block this ability.
+ *
+ * @param Handle The handle to this specific instance of the ability.
+ * @param ActorInfo Information about the actor attempting to activate the ability.
+ * @param SourceTags Source tags used for additional checks.
+ * @param TargetTags Target tags used for additional checks.
+ * @param OptionalRelevantTags Tags that are optionally relevant to this ability.
+ * @return True if the ability can be activated, false otherwise.
+ */
+bool UCosmicStrikeAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, OUT FGameplayTagContainer* OptionalRelevantTags) const
+{
+    if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+    {
+        return false;
+    }
+
+    // Check tags in Ability System Component (ASC)
+    UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+    if (ASC)
+    {
+        // Prevent ability activation during cooldown or if another ability is being cast
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))) ||
+            ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * @brief Ends the ability and cleans up.
+ *
+ * @param Handle Handle that identifies the ability being ended.
+ * @param ActorInfo Information about the actor that activated the ability.
+ * @param ActivationInfo Information about the context of the ability ending.
+ * @param bReplicateEndAbility Whether to replicate the end ability event.
+ * @param bWasCancelled Whether the ability was cancelled.
+ */
+void UCosmicStrikeAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+    // Remove the casting tag
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->RemoveLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+    }
 }

@@ -1,18 +1,19 @@
 #include "CrystalGrowthAbility.h"
 #include "GameFramework/Character.h"
+#include "AbilitySystemComponent.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 
 /** Default constructor for UCrystalGrowthAbility */
 UCrystalGrowthAbility::UCrystalGrowthAbility()
 {
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+    InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
-	//Set default level and crystal duration
-	GrowthLevel = 1;
-	CrystalDuration = 15.0f;
+    // Set default level and crystal duration
+    GrowthLevel = 1;
+    CrystalDuration = 15.0f;
 
-	StructureType = ECrystalStructureType::Bridge; // Default to bridge
+    StructureType = ECrystalStructureType::Bridge; // Default to bridge
 }
 
 /**
@@ -28,16 +29,21 @@ UCrystalGrowthAbility::UCrystalGrowthAbility()
  */
 void UCrystalGrowthAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
-	if (Character)
-	{
-		//Get the direction to spawn the crystal based on the character's aiming direction
-		FVector SpawnLocation = Character->GetActorLocation() + Character->GetActorForwardVector() * 200.0f;
+    Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+    }
+
+    ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
+    if (Character)
+    {
+        FVector SpawnLocation = Character->GetActorLocation() + Character->GetActorForwardVector() * 200.0f;
 
         if (GrowthLevel == 3)
         {
             // TODO: Replace with Gameplay Targeting and Effect to encase enemies in crystals if targeted.
-            // Placeholder logic for encasing enemies.
             FHitResult HitResult;
             FVector Start = Character->GetActorLocation();
             FVector End = Start + Character->GetActorForwardVector() * 500.0f;
@@ -76,79 +82,60 @@ void UCrystalGrowthAbility::ActivateAbility(const FGameplayAbilitySpecHandle Han
         },
             CrystalDuration,
             false);
+    }
 
-        // End the ability after activation
-        EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
-	}
+    // End the ability after activation
+    EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 }
 
 /**
- * @brief Spawns the crystal formations based on the current growth level.
+ * @brief Ends the ability and cleans up.
  *
- * This function is responsible for creating bridges, platforms, walls, or more complex structures.
- *
- * @param SpawnLocation The location where the crystal formation will spawn.
- * @param Level The level of the crystal growth, defining the type of formation.
+ * @param Handle Handle that identifies the ability being ended.
+ * @param ActorInfo Information about the actor that activated the ability.
+ * @param ActivationInfo Information about the context of the ability ending.
+ * @param bReplicateEndAbility Whether to replicate the end ability event.
+ * @param bWasCancelled Whether the ability was cancelled.
  */
-void UCrystalGrowthAbility::SpawnCrystalFormation(const FVector& SpawnLocation, int32 Level)
+void UCrystalGrowthAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
-    // TODO: Replace structure spawning level logic with Gameplay Tags to manage progression.
-    switch (StructureType)
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
     {
-    case ECrystalStructureType::Bridge:
-        if (Level >= 1)
-        {
-            UE_LOG(LogTemp, Log, TEXT("Spawning simple crystal bridge at %s"), *SpawnLocation.ToString());
-            // TODO: Implement logic to spawn simple bridge/platform
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Bridge structure not available at level %d"), Level);
-        }
-        break;
-
-    case ECrystalStructureType::Wall:
-        if (Level >= 2)
-        {
-            UE_LOG(LogTemp, Log, TEXT("Spawning crystal wall at %s"), *SpawnLocation.ToString());
-            // TODO: Implement logic to spawn wall
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Wall structure not available at level %d"), Level);
-        }
-        break;
-
-    case ECrystalStructureType::Staircase:
-        if (Level >= 2)
-        {
-            UE_LOG(LogTemp, Log, TEXT("Spawning spiral staircase at %s"), *SpawnLocation.ToString());
-            // TODO: Implement logic to spawn staircase or arch
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Staircase structure not available at level %d"), Level);
-        }
-        break;
-
-    default:
-        UE_LOG(LogTemp, Warning, TEXT("Unknown crystal structure type"));
-        break;
+        ASC->RemoveLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
     }
 }
 
 /**
- * @brief Encases an enemy in crystal.
+ * @brief Determines if the ability can be activated.
  *
- * This function creates a crystal that encases the target enemy actor.
+ * This function checks the Ability System Component for active tags that would block this ability.
  *
- * @param Target The enemy actor to be encased in crystal.
+ * @param Handle The handle to this specific instance of the ability.
+ * @param ActorInfo Information about the actor attempting to activate the ability.
+ * @param SourceTags Source tags used for additional checks.
+ * @param TargetTags Target tags used for additional checks.
+ * @param OptionalRelevantTags Tags that are optionally relevant to this ability.
+ * @return True if the ability can be activated, false otherwise.
  */
-void UCrystalGrowthAbility::EncaseEnemy(AActor* Target)
+bool UCrystalGrowthAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
-    if (Target)
+    if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
     {
-        UE_LOG(LogTemp, Log, TEXT("Encasing enemy %s in crystal."), *Target->GetName());
-        // TODO: Implement logic to encase the enemy in crystal, using a visual effect or gameplay mechanic.
+        return false;
     }
+
+    // Check tags in Ability System Component (ASC)
+    UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+    if (ASC)
+    {
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))) ||
+            ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
+        {
+            return false; // Prevent ability activation during cooldown or when casting another ability
+        }
+    }
+
+    return true;
 }

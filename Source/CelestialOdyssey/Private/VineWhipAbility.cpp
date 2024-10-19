@@ -1,5 +1,6 @@
 #include "VineWhipAbility.h"
 #include "GameFramework/Character.h"
+#include "AbilitySystemComponent.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -28,6 +29,13 @@ UVineWhipAbility::UVineWhipAbility()
  */
 void UVineWhipAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+    Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+    }
+
     ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
     if (Character)
     {
@@ -48,10 +56,30 @@ void UVineWhipAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
             UE_LOG(LogTemp, Log, TEXT("Vine at %s destroyed."), *StartLocation.ToString());
         },
             VineDuration,
-            false);
+            false
+        );
 
         // End the ability after activation
         EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
+    }
+}
+
+/**
+ * @brief Ends the Vine Whip ability and removes relevant gameplay tags.
+ *
+ * @param Handle Handle that identifies the ability being ended.
+ * @param ActorInfo Information about the actor that activated the ability.
+ * @param ActivationInfo Information about the context of the ability ending.
+ * @param bReplicateEndAbility Should replication of the ability's end occur.
+ * @param bWasCancelled Was the ability manually canceled.
+ */
+void UVineWhipAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    {
+        ASC->RemoveLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
     }
 }
 
@@ -109,4 +137,38 @@ void UVineWhipAbility::ExecuteVineAction(const FVector& StartLocation, const FVe
         UE_LOG(LogTemp, Warning, TEXT("Unknown vine whip action"));
         break;
     }
+}
+
+/**
+ * @brief Determines if the ability can be activated.
+ *
+ * This function checks the Ability System Component for active tags that would block this ability.
+ *
+ * @param Handle The handle to this specific instance of the ability.
+ * @param ActorInfo Information about the actor attempting to activate the ability.
+ * @param SourceTags Source tags used for additional checks.
+ * @param TargetTags Target tags used for additional checks.
+ * @param OptionalRelevantTags Tags that are optionally relevant to this ability.
+ * @return True if the ability can be activated, false otherwise.
+ */
+bool UVineWhipAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, OUT FGameplayTagContainer* OptionalRelevantTags) const
+{
+    if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+    {
+        return false;
+    }
+
+    // Check tags in Ability System Component (ASC)
+    UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+    if (ASC)
+    {
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))) ||
+            ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
+        {
+            // Prevent ability activation if on cooldown or casting another ability
+            return false;
+        }
+    }
+
+    return true;
 }
