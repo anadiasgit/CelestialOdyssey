@@ -4,41 +4,52 @@
 #include "Abilities/GameplayAbility.h"
 #include "GravityShiftAbility.generated.h"
 
-/**
- * @class UGravityShiftAbility
- * @brief Ability that inverts gravity for the player temporarily and rotates the character accordingly.
- */
 UCLASS()
 class CELESTIALODYSSEY_API UGravityShiftAbility : public UGameplayAbility
 {
-	GENERATED_BODY()
-	
+    GENERATED_BODY()
+
 public:
-	/** Default constructor */
-	UGravityShiftAbility();
-
-	/** Getter for GravityShiftLevel */
-	int32 GetGravityShiftLevel() const { return GravityShiftLevel; }
-
-	/** Setter for GravityShiftLevel */
-	void SetGravityShiftLevel(int32 NewLevel) { GravityShiftLevel = NewLevel; }
+    UGravityShiftAbility();
 
 protected:
-	/** Current level of the Gravity Shift ability */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gravity Shift Progression")
-	int32 GravityShiftLevel;
+    virtual void ActivateAbility(
+        const FGameplayAbilitySpecHandle Handle,
+        const FGameplayAbilityActorInfo* ActorInfo,
+        const FGameplayAbilityActivationInfo ActivationInfo,
+        const FGameplayEventData* TriggerEventData
+    ) override;
 
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+    virtual void EndAbility(
+        const FGameplayAbilitySpecHandle Handle,
+        const FGameplayAbilityActorInfo* ActorInfo,
+        const FGameplayAbilityActivationInfo ActivationInfo,
+        bool bReplicateEndAbility,
+        bool bWasCancelled
+    ) override;
 
-	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+    void RevertGravity(ACharacter* Character);
 
-	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+    bool CanActivateAbility(
+        const FGameplayAbilitySpecHandle Handle,
+        const FGameplayAbilityActorInfo* ActorInfo,
+        const FGameplayTagContainer* SourceTags,
+        const FGameplayTagContainer* TargetTags,
+        FGameplayTagContainer* OptionalRelevantTags
+    ) const override;
 
 private:
-	/** Duration for the gravity inversion */
-	float GravityShiftDuration;
+    void RotateCharacter(ACharacter* Character, bool bIsGravityInverted);
 
-	void RevertGravity(ACharacter* Character);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gravity Shift", meta = (AllowPrivateAccess = "true"))
+    float GravityShiftDuration;
 
-	void RotateCharacter(ACharacter* Character, bool bIsGravityInverted);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gravity Shift", meta = (AllowPrivateAccess = "true"))
+    int32 GravityShiftLevel;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cooldown", meta = (AllowPrivateAccess = "true"))
+    TSubclassOf<class UGameplayEffect> CooldownEffect;
+
+    float DefaultCapsuleRadius;
+    float DefaultCapsuleHeight;
 };

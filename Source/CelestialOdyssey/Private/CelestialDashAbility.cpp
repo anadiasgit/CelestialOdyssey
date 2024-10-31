@@ -1,6 +1,12 @@
 #include "CelestialDashAbility.h"
 #include "AbilitySystemComponent.h"
 #include "GameFramework/Character.h"
+#include "GameplayEffect.h"
+#include "GameplayEffectTypes.h"
+#include "AbilitySystemComponent.h"
+#include "COEnemyAttributeSet.h"
+#include "GameFramework/CharacterMovementComponent.h"
+
 
 /** Default constructor for UCelestialDashAbility */
 UCelestialDashAbility::UCelestialDashAbility()
@@ -28,9 +34,23 @@ void UCelestialDashAbility::ActivateAbility(const FGameplayAbilitySpecHandle Han
 {
     Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+
+    if (ASC)
     {
-        ASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+        //Apply cooldown effect
+        if (SkillCooldownGameplayEffectClass)
+        {
+            FGameplayEffectSpecHandle CooldownSpecHandle = MakeOutgoingGameplayEffectSpec(SkillCooldownGameplayEffectClass, 1.0f);
+            ASC->ApplyGameplayEffectSpecToSelf(*CooldownSpecHandle.Data.Get());
+        }
+
+        // Add "Casting" tag to the player to indicate the ability is in use
+        if (!ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))))
+        {
+            ASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+        }
+
     }
 
     ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
@@ -61,7 +81,33 @@ void UCelestialDashAbility::ActivateAbility(const FGameplayAbilitySpecHandle Han
 
         Character->LaunchCharacter(DashDirection * DashSpeed, true, true);
 
-        // Consider using a delay or Ability Task to end the ability properly
+        // Set up collision detection (dash will be interrupted by collisions)
+        FCollisionShape CollisionShape = FCollisionShape::MakeSphere(100.0f); // Radius of 100 for detecting overlaps
+        TArray<FHitResult> HitResults;
+        FCollisionQueryParams Params;
+        Params.AddIgnoredActor(Character); // Ignore the player character
+
+        if (GetWorld()->SweepMultiByChannel(HitResults, Character->GetActorLocation(), DashDestination, FQuat::Identity, ECC_PhysicsBody, CollisionShape, Params))
+        {
+            for (const FHitResult& Hit : HitResults)
+            {
+                AActor* HitActor = Hit.GetActor();
+                if (HitActor && DashLevel == 3 && DamageGameplayEffectClass)
+                {
+                    if (UAbilitySystemComponent* TargetASC = HitActor->FindComponentByClass<UAbilitySystemComponent>())
+                    {
+                        FGameplayEffectSpecHandle DamageSpecHandle = MakeOutgoingGameplayEffectSpec(DamageGameplayEffectClass, 1.0f);
+                        ASC->ApplyGameplayEffectSpecToTarget(*DamageSpecHandle.Data.Get(), TargetASC);
+                    }
+
+                    // Interrupt the dash if a collision occurs
+                    Character->GetCharacterMovement()->StopMovementImmediately();
+                    break;
+                }
+            }
+        }
+
+        // Maybe use a delay or Ability Task to end the ability properly
     }
 
     // End the ability after activation, make sure the dash completes before ending

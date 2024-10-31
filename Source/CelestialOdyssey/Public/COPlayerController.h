@@ -29,7 +29,7 @@ protected:
 	//Called to bind input actions
 	virtual void SetupInputComponent() override;
 
-	//Input functions for movement, jumping, and crouching
+	// Input functions for movement, jumping, and abilities
 	void MoveRight(const FInputActionValue& Value);
 	void StartSprint(const FInputActionValue& Value);
 	void StopSprint(const FInputActionValue& Value);
@@ -45,10 +45,22 @@ protected:
 	void ActivateCrystalShatterAbility(const FInputActionValue& Value);
 	void ActivateVineWhipAbility(const FInputActionValue& Value);
 	void ActivateLunarForestFuryAbility(const FInputActionValue& Value);
+	void HandleGroundSlamOrCrouch(const FInputActionValue& Value);
+	void OnGamepadShoulderLeftPressed(const FInputActionValue& Value);
+	void OnGamepadShoulderLeftReleased(const FInputActionValue& Value);
+	void OnGamepadShoulderRightPressed(const FInputActionValue& Value);
+	void OnGamepadShoulderRightReleased(const FInputActionValue& Value);
+	void CheckForGravityShift();
 
 	//Input Mapping Context for Player
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputMappingContext* PlayerInputMappingContext;
+
+	// Boolean to track if the left gamepad shoulder button is pressed 
+	bool bGamepadShoulderLeftPressed = false;
+
+	// Boolean to track if the right gamepad shoulder button is pressed 
+	bool bGamepadShoulderRightPressed = false;
 
 	//Input Actions
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -57,17 +69,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* JumpAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* CrouchAction;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* CrouchOrGroundSlamAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* SprintAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category ="Input")
 	UInputAction* DashAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* GroundSlamAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* GravityShiftAction;
@@ -87,4 +96,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* LunarForestFuryAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* GamepadShoulderLeftAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* GamepadShoulderRightAction;
 };

@@ -3,6 +3,7 @@
 #include "COPlayerCharacter.h"
 #include "COPlayerState.h"
 #include "AbilitySystemComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 
 /**
@@ -46,31 +47,34 @@ void ACOPlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		//Bind movement
+		// Bind movement
 		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Triggered, this, &ACOPlayerController::MoveRight);
 
-		//Bind jumping
+		// Bind jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACOPlayerController::StartJump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACOPlayerController::StopJump);
-
-		//Bind crouching
-		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &ACOPlayerController::StartCrouch);
-		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &ACOPlayerController::StopCrouch);
 
 		// Bind sprinting
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ACOPlayerController::StartSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ACOPlayerController::StopSprint);
 
-		//Bind Abilities
-		EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateDashAbility);
-		EnhancedInputComponent->BindAction(GroundSlamAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateGroundSlamAbility);
-		EnhancedInputComponent->BindAction(GravityShiftAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateGravityShiftAbility);
+		// Bind shared action for crouch or ground slam
+		EnhancedInputComponent->BindAction(CrouchOrGroundSlamAction, ETriggerEvent::Started, this, &ACOPlayerController::HandleGroundSlamOrCrouch);
+		EnhancedInputComponent->BindAction(CrouchOrGroundSlamAction, ETriggerEvent::Completed, this, &ACOPlayerController::StopCrouch);
+
+		EnhancedInputComponent->BindAction(GamepadShoulderLeftAction, ETriggerEvent::Started, this, &ACOPlayerController::OnGamepadShoulderLeftPressed);
+		EnhancedInputComponent->BindAction(GamepadShoulderLeftAction, ETriggerEvent::Completed, this, &ACOPlayerController::OnGamepadShoulderLeftReleased);
+
+		EnhancedInputComponent->BindAction(GamepadShoulderRightAction, ETriggerEvent::Started, this, &ACOPlayerController::OnGamepadShoulderRightPressed);
+		EnhancedInputComponent->BindAction(GamepadShoulderRightAction, ETriggerEvent::Completed, this, &ACOPlayerController::OnGamepadShoulderRightReleased);
+
+		// Bind Abilities
+		EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Triggered, this, &ACOPlayerController::ActivateDashAbility);
 		EnhancedInputComponent->BindAction(CosmicStrikeAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCosmicStrikeAbility);
 		EnhancedInputComponent->BindAction(CrystalGrowthAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCrystalGrowthAbility);
 		EnhancedInputComponent->BindAction(CrystalShatterAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCrystalShatterAbility);
 		EnhancedInputComponent->BindAction(VineWhipAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateVineWhipAbility);
 		EnhancedInputComponent->BindAction(LunarForestFuryAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateLunarForestFuryAbility);
-
 	}
 }
 
@@ -125,31 +129,41 @@ void ACOPlayerController::StopJump(const FInputActionValue& Value)
 }
 
 /**
- * Handles start of player crouch input
- * 
- * @param Value - Unused, but required by the Enhanced Input System. Initiates the crouch action.
+ * Handles the input for either Ground Slam or Crouch depending on the player's state.
+ *
+ * @param Value - Unused, but required by the Enhanced Input System.
  */
-void ACOPlayerController::StartCrouch(const FInputActionValue& Value)
+void ACOPlayerController::HandleGroundSlamOrCrouch(const FInputActionValue& Value)
 {
 	if (APawn* ControlledPawn = GetPawn())
 	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast <ACOPlayerCharacter>(ControlledPawn))
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
 		{
-			PlayerCharacter->StartCrouch();
+			// Check if character is in the air
+			if (PlayerCharacter->GetCharacterMovement()->IsFalling())
+			{
+				// If in the air, activate Ground Slam
+				ActivateGroundSlamAbility(Value);
+			}
+			else
+			{
+				// If on the ground, crouch
+				PlayerCharacter->StartCrouch();
+			}
 		}
 	}
 }
 
 /**
  * Handles stop of player crouch input
- * 
+ *
  * @param Value - Unused, but required by the Enhanced Input System. Ends the crouch action.
  */
 void ACOPlayerController::StopCrouch(const FInputActionValue& Value)
 {
 	if (APawn* ControlledPawn = GetPawn())
 	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast <ACOPlayerCharacter>(ControlledPawn))
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
 		{
 			PlayerCharacter->StopCrouch();
 		}
@@ -257,7 +271,7 @@ void ACOPlayerController::ActivateGravityShiftAbility(const FInputActionValue& V
 			{
 				// Get the player state
 				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->GroundSlamAbilityClass)
+				if (COPlayerState && COPlayerState->GravityShiftAbilityClass)
 				{
 					ASC->TryActivateAbilityByClass(COPlayerState->GravityShiftAbilityClass);
 				}
@@ -383,5 +397,58 @@ void ACOPlayerController::ActivateLunarForestFuryAbility(const FInputActionValue
 				}
 			}
 		}
+	}
+}
+
+/**
+ * @brief Called when the left gamepad shoulder button is pressed.
+ *
+ * @param Value The input value representing the left shoulder button.
+ */
+void ACOPlayerController::OnGamepadShoulderLeftPressed(const FInputActionValue& Value)
+{
+	bGamepadShoulderLeftPressed = true;
+	CheckForGravityShift();
+}
+
+/**
+ * @brief Called when the left gamepad shoulder button is released.
+ *
+ * @param Value The input value representing the left shoulder button.
+ */
+void ACOPlayerController::OnGamepadShoulderLeftReleased(const FInputActionValue& Value)
+{
+	bGamepadShoulderLeftPressed = false;
+}
+
+/**
+ * @brief Called when the right gamepad shoulder button is pressed.
+ *
+ * @param Value The input value representing the right shoulder button.
+ */
+void ACOPlayerController::OnGamepadShoulderRightPressed(const FInputActionValue& Value)
+{
+	bGamepadShoulderRightPressed = true;
+	CheckForGravityShift();
+}
+
+/**
+ * @brief Called when the right gamepad shoulder button is released.
+ *
+ * @param Value The input value representing the right shoulder button.
+ */
+void ACOPlayerController::OnGamepadShoulderRightReleased(const FInputActionValue& Value)
+{
+	bGamepadShoulderRightPressed = false;
+}
+
+/**
+ * @brief Checks if both gamepad shoulder buttons are pressed to activate Gravity Shift.
+ */
+void ACOPlayerController::CheckForGravityShift()
+{
+	if (bGamepadShoulderLeftPressed && bGamepadShoulderRightPressed)
+	{
+		ActivateGravityShiftAbility(FInputActionValue());
 	}
 }

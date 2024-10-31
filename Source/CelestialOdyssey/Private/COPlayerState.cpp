@@ -28,6 +28,9 @@ void ACOPlayerState::BeginPlay()
 	//Initialize player attributes from the data table
 	InitializeAttributes();
 
+	// Set up the Ability System Component with owner and avatar actor
+	AbilitySystemComponent->InitAbilityActorInfo(this, GetPawn());
+
 	//Grant abilities if the Ability System Component is valid
 	if (AbilitySystemComponent)
 	{

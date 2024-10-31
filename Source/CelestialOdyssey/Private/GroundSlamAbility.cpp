@@ -1,5 +1,6 @@
 #include "GroundSlamAbility.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -63,17 +64,83 @@ void UGroundSlamAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle
         TArray<AActor*> IgnoredActors;
         IgnoredActors.Add(Character);
 
-        UGameplayStatics::ApplyRadialDamage(
-            this,
-            GroundSlamDamage,
-            SlamLocation,
-            GroundSlamRadius,
-            nullptr, // Use default damage type or create a custom damage class
-            IgnoredActors,
-            Character,
-            Character->GetController(),
-            false // Damage is the same throughout the entire shockwave radius
-        );
+        
+        if (GroundSlamDamageEffect)
+        {
+            FGameplayEffectSpecHandle DamageSpecHandle = MakeOutgoingGameplayEffectSpec(GroundSlamDamageEffect, 1.0f);
+            UGameplayStatics::ApplyRadialDamage(
+                this,
+                GroundSlamDamage,
+                SlamLocation,
+                GroundSlamRadius,
+                nullptr, // Use default damage type or create a custom damage class
+                IgnoredActors,
+                Character,
+                Character->GetController(),
+                false // Damage is the same throughout the entire shockwave radius
+            );
+        }
+
+        //Stun effect if level 3
+        if (GroundSlamLevel == 3 && GroundSlamStunEffect)
+        {
+            TArray<FHitResult> HitResults;
+            FCollisionShape CollisionShape = FCollisionShape::MakeSphere(GroundSlamRadius);
+            if (GetWorld()->SweepMultiByChannel(HitResults, SlamLocation, SlamLocation, FQuat::Identity, ECC_Pawn, CollisionShape))
+            {
+                for (const FHitResult& Hit : HitResults)
+                {
+                    AActor* HitActor = Hit.GetActor();
+                    if (HitActor && HitActor != Character)
+                    {
+                        if (UAbilitySystemComponent* TargetASC = HitActor->FindComponentByClass<UAbilitySystemComponent>())
+                        {
+                            // Apply the Ground Slam stun effect
+                            FGameplayEffectSpecHandle StunSpecHandle = MakeOutgoingGameplayEffectSpec(GroundSlamStunEffect, 1.0f);
+                            FActiveGameplayEffectHandle ActiveEffectHandle = TargetASC->ApplyGameplayEffectSpecToTarget(*StunSpecHandle.Data.Get(), TargetASC);
+
+                            // Manually add the State.CC.Stunned tag to the target
+                            TargetASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.CC.Stunned")));
+
+                            // Set a timer to remove the tag after the stun effect duration ends
+                            float EffectDuration = 2.0f; // Assuming 2 seconds as the stun duration
+                            FTimerHandle StunEffectTimerHandle;
+
+                            FTimerDelegate TimerCallback;
+                            TimerCallback.BindLambda([TargetASC]()
+                            {
+                                if (TargetASC)
+                                {
+                                    TargetASC->RemoveLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.CC.Stunned")));
+                                }
+                            });
+
+                            // Use the World Timer Manager to set the timer with the specified duration
+                            GetWorld()->GetTimerManager().SetTimer(StunEffectTimerHandle, TimerCallback, EffectDuration, false);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        // Destroy Breakable Objects if Level 3
+        if (GroundSlamLevel == 3)
+        {
+            TArray<FHitResult> HitResults;
+            FCollisionShape CollisionShape = FCollisionShape::MakeSphere(GroundSlamRadius);
+            if (GetWorld()->SweepMultiByChannel(HitResults, SlamLocation, SlamLocation, FQuat::Identity, ECC_WorldDynamic, CollisionShape))
+            {
+                for (const FHitResult& Hit : HitResults)
+                {
+                    AActor* HitActor = Hit.GetActor();
+                    if (HitActor && HitActor->ActorHasTag(FName("Environment.Breakable")))
+                    {
+                        HitActor->Destroy();
+                    }
+                }
+            }
+        }
     }
 
     // End the ability once it is used
@@ -126,6 +193,17 @@ bool UGroundSlamAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Han
             ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
         {
             // Prevent ability activation if on cooldown or casting another ability
+            return false;
+        }
+    }
+
+    // Check if the character is in the air
+    ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
+    if (Character)
+    {
+        if (!Character->GetCharacterMovement()->IsFalling())
+        {
+            // Ability can only be activated if the character is in the air (falling)
             return false;
         }
     }

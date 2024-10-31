@@ -30,6 +30,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground Slam Progression")
 	float GroundSlamRadius;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground Slam Effects")
+	TSubclassOf<UGameplayEffect> GroundSlamDamageEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ground Slam Effects")
+	TSubclassOf<UGameplayEffect> GroundSlamStunEffect;
+
 public:
 	/** Getter for Ground Slam level */
 	UFUNCTION(BlueprintCallable, Category="Ground Slam Progression")

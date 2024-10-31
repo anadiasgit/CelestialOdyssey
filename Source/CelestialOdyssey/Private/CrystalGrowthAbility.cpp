@@ -57,18 +57,18 @@ void UCrystalGrowthAbility::ActivateAbility(const FGameplayAbilitySpecHandle Han
                 // TODO: Replace manual encasement with a Gameplay Effect for consistency with GAS.
                 AActor* HitActor = HitResult.GetActor();
                 UE_LOG(LogTemp, Log, TEXT("Encasing enemy in crystal at %s"), *HitResult.Location.ToString());
-                EncaseEnemy(HitActor);
+                //EncaseEnemy(HitActor);
             }
             else
             {
                 // If no target is found or the target is not an enemy, spawn the selected structure
-                SpawnCrystalFormation(SpawnLocation, GrowthLevel);
+                //SpawnCrystalFormation(SpawnLocation, GrowthLevel);
             }
         }
         else
         {
             // If GrowthLevel is 1 or 2, directly spawn the selected structure
-            SpawnCrystalFormation(SpawnLocation, GrowthLevel);
+            //SpawnCrystalFormation(SpawnLocation, GrowthLevel);
         }
 
         // Set a timer to destroy the crystal after the duration ends
