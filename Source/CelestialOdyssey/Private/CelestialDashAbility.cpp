@@ -137,13 +137,12 @@ bool UCelestialDashAbility::CanActivateAbility(const FGameplayAbilitySpecHandle 
     UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
     if (ASC)
     {
-        // Prevent ability activation during cooldown
-        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))))
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("Cooldown.Ability.CelestialDash"))))
         {
             return false;
         }
 
-        // Prevent ability activation if another ability is being cast
+        // Check if any ability is currently casting
         if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
         {
             return false;

@@ -40,6 +40,7 @@ protected:
 
 private:
     void RotateCharacter(ACharacter* Character, bool bIsGravityInverted);
+    void CheckForCeilingContact(ACharacter* Character);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gravity Shift", meta = (AllowPrivateAccess = "true"))
     float GravityShiftDuration;
@@ -52,4 +53,7 @@ private:
 
     float DefaultCapsuleRadius;
     float DefaultCapsuleHeight;
+
+    /** Handle for the timer that periodically checks if the character has reached the ceiling. */
+    FTimerHandle CeilingCheckTimerHandle;
 };

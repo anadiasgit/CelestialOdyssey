@@ -6,41 +6,72 @@
 
 /**
  * @class UCrystalShatterAbility
- * @brief Ability that charges and shatters nearby crystals, causing sharp fragments to fly in all directions.
+ * @brief Ability that shatters nearby crystals causing damage and area control.
  *
- * This ability allows the player to shatter crystals with charged blasts, causing area damage and creating glowing shards on the ground.
+ * This ability allows players to shatter crystals, creating damaging fragments and
+ * leaving slowing fields. Higher levels increase damage, add DoT effects, and improve
+ * fragment ricochet capabilities.
  */
 UCLASS()
 class CELESTIALODYSSEY_API UCrystalShatterAbility : public UGameplayAbility
 {
-	GENERATED_BODY()
-	
+    GENERATED_BODY()
+
 public:
-	UCrystalShatterAbility();
-
-	/** Getter for ShatterLevel */
-	int32 GetShatterLevel() const { return ShatterLevel; }
-
-	/** Setter for ShatterLevel */
-	void SetShatterLevel(int32 NewLevel) { ShatterLevel = NewLevel; }
+    UCrystalShatterAbility();
 
 protected:
-	/** Shatter level progression */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Crystal Shatter Progression")
-	int32 ShatterLevel;
+    virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
-	/** Duration for which the shards remain on the ground */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Crystal Shatter Progression")
-	float ShardDuration;
+    virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+    virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const override;
 
-	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+    /** Performs the crystal shatter effect */
+    UFUNCTION(BlueprintCallable, Category = "Crystal Shatter")
+    void PerformShatter(const FVector& Location);
 
-	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+    /** Creates the slowing field on the ground */
+    UFUNCTION(BlueprintCallable, Category = "Crystal Shatter")
+    void CreateSlowField(const FVector& Location);
+
+    /** Launches crystal fragments */
+    UFUNCTION(BlueprintCallable, Category = "Crystal Shatter")
+    void LaunchFragments(const FVector& Origin);
+
+    /** Current level of the ability */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crystal Shatter")
+    int32 ShatterLevel;
+
+    /** Duration of the slowing field */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crystal Shatter")
+    float SlowFieldDuration;
+
+    /** Radius of the shatter effect */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crystal Shatter")
+    float ShatterRadius;
+
+    /** Base damage of the shatter */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Crystal Shatter")
+    float BaseDamage;
+
+    /** Gameplay effect for the cooldown */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
+    TSubclassOf<UGameplayEffect> CooldownEffectClass;
+
+    /** Gameplay effect for initial damage */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
+    TSubclassOf<UGameplayEffect> DamageEffectClass;
+
+    /** Gameplay effect for damage over time */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
+    TSubclassOf<UGameplayEffect> DoTEffectClass;
+
+    /** Gameplay effect for the slow effect */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
+    TSubclassOf<UGameplayEffect> SlowEffectClass;
 
 private:
-	/** Cooldown duration for the ability */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Crystal Shatter Progression", meta = (AllowPrivateAccess = "true"))
-	float CooldownDuration;
+    /** Timer handle for the slow field */
+    FTimerHandle SlowFieldTimerHandle;
 };

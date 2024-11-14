@@ -8,134 +8,186 @@ UCosmicStrikeAbility::UCosmicStrikeAbility()
 {
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
-    // Set default combo level
-    ComboLevel = 1;
+    // Initialize ability properties
+    AbilityLevel = 1; // Default level
+    AttackCooldown = 0.5f; // 0.5 seconds cooldown between each attack
 }
 
 /**
  * @brief Activates the Cosmic Strike ability.
- *
- * This function executes the logic for performing a melee combo attack.
- * Depending on the combo level, different effects and attack counts are applied.
- *
- * @param Handle Handle that identifies the ability being activated.
- * @param ActorInfo Information about the actor that is activating the ability.
- * @param ActivationInfo Information about the context of the ability activation.
- * @param TriggerEventData Event data associated with the activation trigger, if any.
  */
 void UCosmicStrikeAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
     Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-    // Add the casting tag
-    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
-    {
-        ASC->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
-    }
-
     ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
     if (Character)
     {
-        ExecuteCombo(Character);
+        // Perform the attack based on the current ability level
+        PerformAttack(Character);
 
-        // TODO: Implement proper cooldown using Gameplay Effects and Tags
+        // Set cooldown timer
+        FTimerManager& TimerManager = Character->GetWorldTimerManager();
+
+        FTimerDelegate TimerDelegate;
+        TimerDelegate.BindUFunction(this, FName("EndComboAttack"));
+
+        TimerManager.SetTimer(
+            ComboResetTimerHandle,
+            TimerDelegate,
+            AttackCooldown,
+            false
+        );
     }
-
-    // End the ability after activation
-    EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 }
 
 /**
- * @brief Executes the combo attack logic.
- *
- * This function handles the melee combo sequence, including striking enemies,
- * applying knockback, and triggering additional effects based on progression level.
- *
- * @param Character The character performing the combo attack.
+ * @brief Helper function to end the combo attack ability.
  */
-void UCosmicStrikeAbility::ExecuteCombo(ACharacter* Character)
+void UCosmicStrikeAbility::EndComboAttack()
 {
-    if (!Character)
-    {
-        return;
-    }
+    EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
 
-    // Implement combo logic based on ability level
-    switch (ComboLevel)
-    {
-    case 1: // Level 1: Basic three-hit combo
-        UE_LOG(LogTemp, Log, TEXT("Performing combo hit 1"));
-        // TODO: Implement hit animation and detection logic
-        break;
 
-    case 2: // Level 2: Adds knockback to the final hit
-        UE_LOG(LogTemp, Log, TEXT("Performing combo hit with knockback"));
-        // TODO: Implement knockback effect
-        break;
-
-    case 3: // Level 3: Releases an energy wave on the final hit
-        UE_LOG(LogTemp, Log, TEXT("Performing combo hit with energy wave"));
-        // TODO: Implement energy wave effect
-        break;
-
-    default:
-        UE_LOG(LogTemp, Warning, TEXT("Unknown combo level"));
-        break;
-    }
-
-    // TODO: Properly handle the combo state and cooldown using GAS features
+/**
+ * @brief Ends the Cosmic Strike ability.
+ */
+void UCosmicStrikeAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
 /**
- * @brief Checks if the ability can be activated.
- *
- * This function checks the Ability System Component for active tags that would block this ability.
- *
- * @param Handle The handle to this specific instance of the ability.
- * @param ActorInfo Information about the actor attempting to activate the ability.
- * @param SourceTags Source tags used for additional checks.
- * @param TargetTags Target tags used for additional checks.
- * @param OptionalRelevantTags Tags that are optionally relevant to this ability.
- * @return True if the ability can be activated, false otherwise.
+ * @brief Determines if the ability can be activated.
  */
-bool UCosmicStrikeAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, OUT FGameplayTagContainer* OptionalRelevantTags) const
+bool UCosmicStrikeAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
     if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
     {
         return false;
     }
 
-    // Check tags in Ability System Component (ASC)
     UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
     if (ASC)
     {
-        // Prevent ability activation during cooldown or if another ability is being cast
-        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))) ||
-            ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("Cooldown.Ability.CosmicStrike"))))
+        {
+            return false;
+        }
+
+        // Check if any ability is currently casting
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
         {
             return false;
         }
     }
-
+    // Ensure the character can activate the ability
     return true;
 }
 
 /**
- * @brief Ends the ability and cleans up.
- *
- * @param Handle Handle that identifies the ability being ended.
- * @param ActorInfo Information about the actor that activated the ability.
- * @param ActivationInfo Information about the context of the ability ending.
- * @param bReplicateEndAbility Whether to replicate the end ability event.
- * @param bWasCancelled Whether the ability was cancelled.
+ * @brief Performs the attack based on the current level of the ability.
  */
-void UCosmicStrikeAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+void UCosmicStrikeAbility::PerformAttack(ACharacter* Character)
 {
-    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-
-    // Remove the casting tag
-    if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+    if (Character)
     {
-        ASC->RemoveLooseGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting")));
+        FVector StartLocation = Character->GetActorLocation();
+        FVector EndLocation = StartLocation + (Character->GetActorForwardVector() * 200.0f); // Adjust distance as necessary
+
+        FHitResult HitResult;
+        FCollisionQueryParams QueryParams;
+        QueryParams.AddIgnoredActor(Character); // Ignore the player character itself
+
+        // Perform a line trace to check for an enemy in front of the player
+        bool bHit = Character->GetWorld()->LineTraceSingleByChannel(
+            HitResult,
+            StartLocation,
+            EndLocation,
+            ECC_Visibility,
+            QueryParams
+        );
+
+        if (bHit && HitResult.GetActor())
+        {
+            ACharacter* HitCharacter = Cast<ACharacter>(HitResult.GetActor());
+            if (HitCharacter)
+            {
+                switch (AbilityLevel)
+                {
+                case 1:
+                    // Perform the basic three-hit combo
+                    UE_LOG(LogTemp, Log, TEXT("Performing Level 1: Basic three-hit combo"));
+
+                    // Insert logic here for basic three-hit combo animations or effects.
+                    break;
+
+                case 2:
+                    // Perform the combo, adding a fourth hit with knockback
+                    UE_LOG(LogTemp, Log, TEXT("Performing Level 2: Four-hit combo with knockback"));
+
+                    // Apply Knockback Effect to the enemy character
+                    ApplyKnockbackEffect(HitCharacter);
+                    break;
+
+                case 3:
+                    // Perform the combo with an energy wave at the end
+                    UE_LOG(LogTemp, Log, TEXT("Performing Level 3: Four-hit combo with energy wave"));
+
+                    // Apply Knockback Effect to the enemy character
+                    ApplyKnockbackEffect(HitCharacter);
+
+                    // Trigger Energy Wave to affect additional enemies
+                    TriggerEnergyWave(Character);
+                    break;
+
+                default:
+                    UE_LOG(LogTemp, Warning, TEXT("Invalid ability level"));
+                    break;
+                }
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("No enemy detected in front of the character"));
+        }
+    }
+}
+
+/**
+ * @brief Applies a knockback effect to the targeted enemy.
+ *
+ * This function calculates the knockback direction and applies a force to the enemy character to knock them backward.
+ *
+ * @param HitCharacter The character that will receive the knockback effect.
+ */
+void UCosmicStrikeAbility::ApplyKnockbackEffect(ACharacter* HitCharacter)
+{
+    if (HitCharacter)
+    {
+        FVector KnockbackDirection = HitCharacter->GetActorLocation() - GetOwningActorFromActorInfo()->GetActorLocation();
+        KnockbackDirection.Z = 0.0f; // Prevent vertical knockback
+        KnockbackDirection.Normalize();
+
+        float KnockbackStrength = 1000.0f; // Adjust based on gameplay balance
+        HitCharacter->LaunchCharacter(KnockbackDirection * KnockbackStrength, true, true);
+        UE_LOG(LogTemp, Log, TEXT("Applying knockback effect to the enemy character."));
+    }
+}
+
+/**
+ * @brief Triggers an energy wave attack.
+ *
+ * This function is used at the end of the combo to add additional area-of-effect damage.
+ *
+ * @param Character The character initiating the energy wave attack.
+ */
+void UCosmicStrikeAbility::TriggerEnergyWave(ACharacter* Character)
+{
+    if (Character)
+    {
+        // Logic for triggering energy wave.
+        UE_LOG(LogTemp, Log, TEXT("Triggering energy wave."));
     }
 }

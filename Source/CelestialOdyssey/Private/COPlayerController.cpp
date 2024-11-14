@@ -7,12 +7,15 @@
 
 
 /**
- * Constructor
- * Initializes the player controller.
+ * @brief Default constructor for ACOPlayerController
+ *
+ * Initializes timing variables for ability activation tracking.
  */
 ACOPlayerController::ACOPlayerController()
 {
-
+	LastShoulderLeftPressTime = 0.0f;
+	LastShoulderRightPressTime = 0.0f;
+	bIsAbilityActivationPending = false;
 }
 
 /**
@@ -22,21 +25,33 @@ void ACOPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Ensure PlayerInputMappingContext is valid
-	if (!PlayerInputMappingContext)
+	if (!GeneralInputMappingContext)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("GeneralInputMappingContext is null!"));
 		return;
 	}
 
-	// Get the local player subsystem
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
-		// Add the player input mapping context
-		Subsystem->AddMappingContext(PlayerInputMappingContext, 0);
+		UE_LOG(LogTemp, Log, TEXT("Adding Input Mapping Context"));
+		Subsystem->AddMappingContext(GeneralInputMappingContext, 0);
 	}
-
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Enhanced Input Local Player Subsystem not found!"));
+	}
 }
 
+/**
+ * @brief Updates input mapping based on the current level.
+ */
+void ACOPlayerController::UpdateInputMappingForCurrentLevel()
+{
+	if (ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>())
+	{
+		COPlayerState->SetCurrentLevel(CurrentLevel == EnchantedMoonLevel ? ECOGameLevel::EnchantedForestMoon : ECOGameLevel::CrystallineCaves);
+	}
+}
 
 /**
  * Called to bind input actions
@@ -47,34 +62,22 @@ void ACOPlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		// Bind movement
+		// Movement bindings
 		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Triggered, this, &ACOPlayerController::MoveRight);
-
-		// Bind jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACOPlayerController::StartJump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACOPlayerController::StopJump);
-
-		// Bind sprinting
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ACOPlayerController::StartSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ACOPlayerController::StopSprint);
-
-		// Bind shared action for crouch or ground slam
 		EnhancedInputComponent->BindAction(CrouchOrGroundSlamAction, ETriggerEvent::Started, this, &ACOPlayerController::HandleGroundSlamOrCrouch);
 		EnhancedInputComponent->BindAction(CrouchOrGroundSlamAction, ETriggerEvent::Completed, this, &ACOPlayerController::StopCrouch);
 
-		EnhancedInputComponent->BindAction(GamepadShoulderLeftAction, ETriggerEvent::Started, this, &ACOPlayerController::OnGamepadShoulderLeftPressed);
-		EnhancedInputComponent->BindAction(GamepadShoulderLeftAction, ETriggerEvent::Completed, this, &ACOPlayerController::OnGamepadShoulderLeftReleased);
+		// Elemental ability bindings
+		EnhancedInputComponent->BindAction(GamepadShoulderLeftAction, ETriggerEvent::Started, this, &ACOPlayerController::HandlePrimaryAbility);
+		EnhancedInputComponent->BindAction(GamepadShoulderRightAction, ETriggerEvent::Started, this, &ACOPlayerController::HandleSecondaryAbility);
 
-		EnhancedInputComponent->BindAction(GamepadShoulderRightAction, ETriggerEvent::Started, this, &ACOPlayerController::OnGamepadShoulderRightPressed);
-		EnhancedInputComponent->BindAction(GamepadShoulderRightAction, ETriggerEvent::Completed, this, &ACOPlayerController::OnGamepadShoulderRightReleased);
-
-		// Bind Abilities
-		EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Triggered, this, &ACOPlayerController::ActivateDashAbility);
-		EnhancedInputComponent->BindAction(CosmicStrikeAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCosmicStrikeAbility);
-		EnhancedInputComponent->BindAction(CrystalGrowthAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCrystalGrowthAbility);
-		EnhancedInputComponent->BindAction(CrystalShatterAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateCrystalShatterAbility);
-		EnhancedInputComponent->BindAction(VineWhipAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateVineWhipAbility);
-		EnhancedInputComponent->BindAction(LunarForestFuryAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateLunarForestFuryAbility);
+		// Core abilities bindings
+		EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Triggered, this, &ACOPlayerController::ActivateDashAbilityWrapper);
+		EnhancedInputComponent->BindAction(CosmicStrikeAction, ETriggerEvent::Started, this, &ACOPlayerController::ActivateBasicAttackWrapper);
 	}
 }
 
@@ -142,8 +145,8 @@ void ACOPlayerController::HandleGroundSlamOrCrouch(const FInputActionValue& Valu
 			// Check if character is in the air
 			if (PlayerCharacter->GetCharacterMovement()->IsFalling())
 			{
-				// If in the air, activate Ground Slam
-				ActivateGroundSlamAbility(Value);
+				// If in the air, activate Ground Slam using slot system
+				ActivateAbilityFromSlot(ECOAbilitySlot::GroundSlamAbility, Value);
 			}
 			else
 			{
@@ -203,252 +206,189 @@ void ACOPlayerController::StopSprint(const FInputActionValue& Value)
 }
 
 /**
- * @brief Activates the Celestial Dash ability.
- *
- * This function attempts to activate the Celestial Dash ability for the player character
- * by using the ability system component attached to the character.
- *
- * @param Value Unused input value, required by the input binding system.
- */
-void ACOPlayerController::ActivateDashAbility(const FInputActionValue& Value)
-{
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
-		{
-			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-			{
-				// Get the player state
-				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->CelestialDashAbilityClass)
-				{
-					ASC->TryActivateAbilityByClass(COPlayerState->CelestialDashAbilityClass);
-				}
-			}
-		}
-	}
-}
-
-/**
- * @brief Activates the Ground Slam ability.
- *
- * This function attempts to activate the Ground Slam ability for the player character
- * by using the ability system component attached to the character.
- *
- * @param Value Unused input value, required by the input binding system.
- */
-void ACOPlayerController::ActivateGroundSlamAbility(const FInputActionValue& Value)
-{
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
-		{
-			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-			{
-				// Get the player state
-				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->GroundSlamAbilityClass)
-				{
-					ASC->TryActivateAbilityByClass(COPlayerState->GroundSlamAbilityClass);
-				}
-			}
-		}
-	}
-}
-
-/**
- * @brief Handles activation of the Gravity Shift ability.
- *
- * @param Value Unused input value, required by the Enhanced Input System.
- */
-void ACOPlayerController::ActivateGravityShiftAbility(const FInputActionValue& Value)
-{
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
-		{
-			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-			{
-				// Get the player state
-				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->GravityShiftAbilityClass)
-				{
-					ASC->TryActivateAbilityByClass(COPlayerState->GravityShiftAbilityClass);
-				}
-			}
-		}
-	}
-
-}/**
- * Handles activation of the Cosmic Strike ability.
- *
- * @param Value Unused input value, required by the Enhanced Input System.
- */
-void ACOPlayerController::ActivateCosmicStrikeAbility(const FInputActionValue& Value)
-{
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
-		{
-			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-			{
-				// Get the player state
-				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->CosmicStrikeAbilityClass)
-				{
-					ASC->TryActivateAbilityByClass(COPlayerState->CosmicStrikeAbilityClass);
-				}
-			}
-		}
-	}
-}
-
-/**
- * Handles activation of the Crystal Growth ability.
- *
- * @param Value Unused input value, required by the Enhanced Input System.
- */
-void ACOPlayerController::ActivateCrystalGrowthAbility(const FInputActionValue& Value)
-{
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
-		{
-			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-			{
-				// Get the player state
-				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->CrystalGrowthAbilityClass)
-				{
-					ASC->TryActivateAbilityByClass(COPlayerState->CrystalGrowthAbilityClass);
-				}
-			}
-		}
-	}
-}
-
-/**
- * Handles activation of the Crystal Shatter ability.
- *
- * @param Value Unused input value, required by the Enhanced Input System.
- */
-void ACOPlayerController::ActivateCrystalShatterAbility(const FInputActionValue& Value)
-{
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
-		{
-			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-			{
-				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->CrystalShatterAbilityClass)
-				{
-					ASC->TryActivateAbilityByClass(COPlayerState->CrystalShatterAbilityClass);
-				}
-			}
-		}
-	}
-}
-
-/**
- * Handles activation of the Vine Whip ability.
- *
- * @param Value Unused input value, required by the Enhanced Input System.
- */
-void ACOPlayerController::ActivateVineWhipAbility(const FInputActionValue& Value)
-{
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
-		{
-			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-			{
-				// Get the player state
-				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->VineWhipAbilityClass)
-				{
-					ASC->TryActivateAbilityByClass(COPlayerState->VineWhipAbilityClass);
-				}
-			}
-		}
-	}
-}
-
-/**
- * @brief Handles the activation of the Lunar Forest Fury ability.
- *
- * This method allows the player to channel energy, triggering Lunar Forest Fury to damage and knockback enemies.
- *
- * @param Value Unused input value, required by the Enhanced Input System.
- */
-void ACOPlayerController::ActivateLunarForestFuryAbility(const FInputActionValue& Value)
-{
-	if (APawn* ControlledPawn = GetPawn())
-	{
-		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
-		{
-			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-			{
-				// Get the player state
-				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
-				if (COPlayerState && COPlayerState->LunarForestFuryAbilityClass)
-				{
-					ASC->TryActivateAbilityByClass(COPlayerState->LunarForestFuryAbilityClass);
-				}
-			}
-		}
-	}
-}
-
-/**
- * @brief Called when the left gamepad shoulder button is pressed.
- *
- * @param Value The input value representing the left shoulder button.
- */
-void ACOPlayerController::OnGamepadShoulderLeftPressed(const FInputActionValue& Value)
-{
-	bGamepadShoulderLeftPressed = true;
-	CheckForGravityShift();
-}
-
-/**
- * @brief Called when the left gamepad shoulder button is released.
- *
- * @param Value The input value representing the left shoulder button.
- */
-void ACOPlayerController::OnGamepadShoulderLeftReleased(const FInputActionValue& Value)
-{
-	bGamepadShoulderLeftPressed = false;
-}
-
-/**
- * @brief Called when the right gamepad shoulder button is pressed.
- *
- * @param Value The input value representing the right shoulder button.
- */
-void ACOPlayerController::OnGamepadShoulderRightPressed(const FInputActionValue& Value)
-{
-	bGamepadShoulderRightPressed = true;
-	CheckForGravityShift();
-}
-
-/**
- * @brief Called when the right gamepad shoulder button is released.
- *
- * @param Value The input value representing the right shoulder button.
- */
-void ACOPlayerController::OnGamepadShoulderRightReleased(const FInputActionValue& Value)
-{
-	bGamepadShoulderRightPressed = false;
-}
-
-/**
  * @brief Checks if both gamepad shoulder buttons are pressed to activate Gravity Shift.
+ * @return true if Gravity Shift was activated, false otherwise
  */
-void ACOPlayerController::CheckForGravityShift()
+bool ACOPlayerController::CheckForGravityShift()
 {
 	if (bGamepadShoulderLeftPressed && bGamepadShoulderRightPressed)
 	{
-		ActivateGravityShiftAbility(FInputActionValue());
+		// Activate Gravity Shift using the ability slot system
+		ActivateAbilityFromSlot(ECOAbilitySlot::ComboAbility, FInputActionValue());
+
+		// Reset both button states
+		ResetShoulderButtonStates();
+		return true;
+	}
+	return false;
+}
+
+/**
+ * @brief Resets all button states and pending ability flags
+ *
+ * Called after ability activation to clean up all state tracking variables.
+ */
+void ACOPlayerController::ResetShoulderButtonStates()
+{
+	bGamepadShoulderLeftPressed = false;
+	bGamepadShoulderRightPressed = false;
+	bIsAbilityActivationPending = false;
+}
+
+/**
+ * @brief Activates an ability from a specific slot
+ * @param Slot The slot containing the ability to activate
+ * @param Value The input value from Enhanced Input
+ */
+void ACOPlayerController::ActivateAbilityFromSlot(ECOAbilitySlot Slot, const FInputActionValue& Value)
+{
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		if (ACOPlayerCharacter* PlayerCharacter = Cast<ACOPlayerCharacter>(ControlledPawn))
+		{
+			if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+			{
+				ACOPlayerState* COPlayerState = GetPlayerState<ACOPlayerState>();
+				if (COPlayerState)
+				{
+					// Get the ability for this slot 
+					if (TSubclassOf<UGameplayAbility> AbilityClass = COPlayerState->GetAbilityForSlot(Slot))
+					{
+						ASC->TryActivateAbilityByClass(AbilityClass);
+						UE_LOG(LogTemp, Log, TEXT("Activating ability from slot: %d"), static_cast<int32>(Slot));
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+ * @brief Handles the primary ability input (Q/L1)
+ *
+ * Processes primary ability (Vine Whip) input and checks for potential
+ * combo activation with secondary ability input. If both inputs occur within
+ * the combo window, activates Gravity Shift instead.
+ *
+ * @param Value The input value from Enhanced Input
+ */
+void ACOPlayerController::HandlePrimaryAbility(const FInputActionValue& Value)
+{
+	float CurrentTime = GetWorld()->GetTimeSeconds();
+	bGamepadShoulderLeftPressed = true;
+	LastShoulderLeftPressTime = CurrentTime;
+
+	// Check for simultaneous press first
+	if (CheckForSimultaneousPress())
+	{
+		// Activate Gravity Shift
+		ActivateAbilityFromSlot(ECOAbilitySlot::ComboAbility, Value);
+		ResetShoulderButtonStates();
+	}
+	else
+	{
+		// Store the primary ability as pending
+		bIsAbilityActivationPending = true;
+		PendingAbilitySlot = ECOAbilitySlot::PrimaryAbility;
+
+		// Set a timer to activate the ability if no combo is detected
+		FTimerHandle TimerHandle;
+		GetWorld()->GetTimerManager().SetTimer(
+			TimerHandle,
+			this,
+			&ACOPlayerController::ProcessPendingAbility,
+			ComboTimeWindow,
+			false
+		);
+	}
+}
+
+/**
+ * @brief Handles the secondary ability input (R/R1)
+ *
+ * Processes secondary ability (Lunar Forest Fury) input and checks for potential
+ * combo activation with primary ability input. If both inputs occur within
+ * the combo window, activates Gravity Shift instead.
+ *
+ * @param Value The input value from Enhanced Input
+ */
+void ACOPlayerController::HandleSecondaryAbility(const FInputActionValue& Value)
+{
+	float CurrentTime = GetWorld()->GetTimeSeconds();
+	bGamepadShoulderRightPressed = true;
+	LastShoulderRightPressTime = CurrentTime;
+
+	// Check for simultaneous press first
+	if (CheckForSimultaneousPress())
+	{
+		// Activate Gravity Shift
+		ActivateAbilityFromSlot(ECOAbilitySlot::ComboAbility, Value);
+		ResetShoulderButtonStates();
+	}
+	else
+	{
+		// Store the secondary ability as pending
+		bIsAbilityActivationPending = true;
+		PendingAbilitySlot = ECOAbilitySlot::SecondaryAbility;
+
+		// Set a timer to activate the ability if no combo is detected
+		FTimerHandle TimerHandle;
+		GetWorld()->GetTimerManager().SetTimer(
+			TimerHandle,
+			this,
+			&ACOPlayerController::ProcessPendingAbility,
+			ComboTimeWindow,
+			false
+		);
+	}
+}
+
+/**
+ * @brief Handles the combo ability input (Q+R/L1+R1)
+ */
+void ACOPlayerController::HandleComboAbility(const FInputActionValue& Value)
+{
+	ActivateAbilityFromSlot(ECOAbilitySlot::ComboAbility, Value);
+}
+
+/**
+ * @brief Checks if both ability buttons were pressed simultaneously
+ *
+ * Determines if both the primary and secondary ability buttons were pressed
+ * within the defined combo time window (ComboTimeWindow seconds).
+ *
+ * @return true if both buttons were pressed within the time window, false otherwise
+ */
+bool ACOPlayerController::CheckForSimultaneousPress()
+{
+	float CurrentTime = GetWorld()->GetTimeSeconds();
+
+	// Check if both buttons are pressed within the combo time window
+	if (bGamepadShoulderLeftPressed && bGamepadShoulderRightPressed)
+	{
+		float TimeDifference = FMath::Abs(LastShoulderLeftPressTime - LastShoulderRightPressTime);
+		return TimeDifference <= ComboTimeWindow;
+	}
+
+	return false;
+}
+
+/**
+ * @brief Processes any pending ability activation
+ *
+ * Called after the combo time window expires. If an ability is pending
+ * and no combo was detected, activates the pending ability.
+ */
+void ACOPlayerController::ProcessPendingAbility()
+{
+	if (bIsAbilityActivationPending)
+	{
+		// Only activate the pending ability if a combo was not triggered
+		if (!CheckForSimultaneousPress())
+		{
+			ActivateAbilityFromSlot(PendingAbilitySlot, FInputActionValue());
+		}
+
+		bIsAbilityActivationPending = false;
 	}
 }

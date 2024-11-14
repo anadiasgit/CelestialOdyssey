@@ -17,6 +17,7 @@ ACOPlayerCharacter::ACOPlayerCharacter()
 	SprintSpeed = 1000.0f;
 	bIsSprinting = false;
 	bIsFacingRight = true;
+	bHasReachedCeiling = false;
 
 	// Create the spring arm component
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));

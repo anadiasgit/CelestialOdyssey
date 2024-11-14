@@ -61,6 +61,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Movement")
 	bool GetIsFalling() const { return bIsFalling; }
 
+	// Getter for bHasReachedCeiling
+	UFUNCTION(BlueprintCallable, Category = "Gravity Shift")
+	bool GetHasReachedCeiling() const { return bHasReachedCeiling; }
+
+	// Setter for bHasReachedCeiling
+	void SetHasReachedCeiling(bool bValue) { bHasReachedCeiling = bValue; }
+
 	//This function allows the character to interact with abilities that are owned by the Player State.
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const;
 
@@ -88,6 +95,9 @@ protected:
 	bool bIsJumpingIdle = false;
 
 	bool bIsFalling = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Gravity Shift")
+	bool bHasReachedCeiling = false;
 
 	// Spring Arm for camera follow
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")

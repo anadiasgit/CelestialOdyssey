@@ -5,6 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 #include "COPlayerAttributeSet.h"
+#include "COGameEnums.h" // Add this new include
 #include "COPlayerState.generated.h"
 
 /**
@@ -18,53 +19,96 @@
 UCLASS()
 class CELESTIALODYSSEY_API ACOPlayerState : public APlayerState, public IAbilitySystemInterface
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	//Default constructor
-	ACOPlayerState();
+    /** Default constructor */
+    ACOPlayerState();
 
-	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+    /** Current state of the character for input handling */
+    UPROPERTY(BlueprintReadWrite, Category = "Input Combo State")
+    EInputComboState CurrentInputComboState;
 
-	void InitializeAttributes();
+    /** Current level the player is in */
+    UPROPERTY(BlueprintReadWrite, Category = "Level")
+    ECOGameLevel CurrentLevel;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UGameplayAbility> CelestialDashAbilityClass;
+    /** Mapping of abilities for each level */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
+    TMap<ECOGameLevel, FCOLevelAbilityMapping> LevelAbilityMappings;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UGameplayAbility> GroundSlamAbilityClass;
+    /** Gets the Ability System Component */
+    virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UGameplayAbility> GravityShiftAbilityClass;
+    /** Initializes the player's attributes */
+    void InitializeAttributes();
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UGameplayAbility> CosmicStrikeAbilityClass;
+    /** Sets the current input combo state and logs any changes */
+    void SetCurrentInputComboState(EInputComboState NewState);
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UGameplayAbility> CrystalGrowthAbilityClass;
+    /**
+     * @brief Changes the current level and updates available abilities
+     * @param NewLevel The level to switch to
+     */
+    UFUNCTION(BlueprintCallable, Category = "Level Management")
+    void SetCurrentLevel(ECOGameLevel NewLevel);
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UGameplayAbility> CrystalShatterAbilityClass;
+    /**
+     * @brief Gets the ability assigned to a specific slot for the current level
+     * @param Slot The ability slot to query
+     * @return The gameplay ability class assigned to that slot, or nullptr if none
+     */
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    TSubclassOf<UGameplayAbility> GetAbilityForSlot(ECOAbilitySlot Slot) const;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UGameplayAbility> VineWhipAbilityClass;
+    /** @deprecated Use LevelAbilityMappings instead */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities|Legacy")
+    TSubclassOf<UGameplayAbility> CelestialDashAbilityClass;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Abilities")
-	TSubclassOf<UGameplayAbility> LunarForestFuryAbilityClass;
+    /** @deprecated Use LevelAbilityMappings instead */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities|Legacy")
+    TSubclassOf<UGameplayAbility> GroundSlamAbilityClass;
+
+    /** @deprecated Use LevelAbilityMappings instead */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities|Legacy")
+    TSubclassOf<UGameplayAbility> GravityShiftAbilityClass;
+
+    /** @deprecated Use LevelAbilityMappings instead */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities|Legacy")
+    TSubclassOf<UGameplayAbility> CosmicStrikeAbilityClass;
+
+    /** @deprecated Use LevelAbilityMappings instead */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities|Legacy")
+    TSubclassOf<UGameplayAbility> CrystalGrowthAbilityClass;
+
+    /** @deprecated Use LevelAbilityMappings instead */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities|Legacy")
+    TSubclassOf<UGameplayAbility> CrystalShatterAbilityClass;
+
+    /** @deprecated Use LevelAbilityMappings instead */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities|Legacy")
+    TSubclassOf<UGameplayAbility> VineWhipAbilityClass;
+
+    /** @deprecated Use LevelAbilityMappings instead */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Abilities|Legacy")
+    TSubclassOf<UGameplayAbility> LunarForestFuryAbilityClass;
 
 protected:
-	virtual void BeginPlay() override;
+    /** Called when the game starts */
+    virtual void BeginPlay() override;
 
-protected:
-	//Ability System Component that manages abilities for this player
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	UAbilitySystemComponent* AbilitySystemComponent;
+    /** Updates available abilities based on current level */
+    void UpdateAvailableAbilities();
 
-	/** Attribute Set for player attributes */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
-	UCOPlayerAttributeSet* AttributeSet;
+    /** Ability System Component that manages abilities */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+    UAbilitySystemComponent* AbilitySystemComponent;
 
-	/** Data table for initializing attributes */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attributes")
-	UDataTable* AttributeDataTable;
+    /** Attribute Set for player attributes */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
+    UCOPlayerAttributeSet* AttributeSet;
+
+    /** Data table for initializing attributes */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attributes")
+    UDataTable* AttributeDataTable;
 };

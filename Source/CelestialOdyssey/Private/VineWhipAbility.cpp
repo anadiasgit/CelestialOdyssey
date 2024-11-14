@@ -162,10 +162,14 @@ bool UVineWhipAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handl
     UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
     if (ASC)
     {
-        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.OnCooldown"))) ||
-            ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("Cooldown.Ability.VineWhip"))))
         {
-            // Prevent ability activation if on cooldown or casting another ability
+            return false;
+        }
+
+        // Check if any ability is currently casting
+        if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Casting"))))
+        {
             return false;
         }
     }

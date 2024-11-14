@@ -6,28 +6,39 @@
 
 /**
  * @class UCosmicStrikeAbility
- * @brief Ability that implements a basic melee attack combo with progression.
- *
- * This ability allows the player to perform a combo melee attack with different effects at each level.
+ * @brief Handles the Cosmic Strike ability, which allows the player to perform a melee combo attack.
  */
 UCLASS()
 class CELESTIALODYSSEY_API UCosmicStrikeAbility : public UGameplayAbility
 {
-	GENERATED_BODY()
-	
+    GENERATED_BODY()
+
 public:
-	UCosmicStrikeAbility();
+    UCosmicStrikeAbility();
 
 protected:
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+    virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
-	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+    virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
-	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+    bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags,  const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const override;
 
-	/** Current combo level */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combo Progression")
-	int32 ComboLevel;
+    void ApplyKnockbackEffect(ACharacter* HitCharacter);
+    void TriggerEnergyWave(ACharacter* Character);
 
-	void ExecuteCombo(ACharacter* Character);
+private:
+    void PerformAttack(ACharacter* Character);
+    UFUNCTION()
+    void EndComboAttack();
+
+    /** Current level of Cosmic Strike. Determines the power of the attack. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cosmic Strike", meta = (AllowPrivateAccess = "true"))
+    int32 AbilityLevel;
+
+    /** Cooldown duration for Cosmic Strike. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cosmic Strike", meta = (AllowPrivateAccess = "true"))
+    float AttackCooldown;
+
+    /** Handle for managing combo cooldown reset. */
+    FTimerHandle ComboResetTimerHandle;
 };

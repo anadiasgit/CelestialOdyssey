@@ -6,99 +6,182 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
 #include "InputMappingContext.h"
+#include "COGameEnums.h"
 #include "COPlayerController.generated.h"
 
 /**
- * Player-specific controller class.
- * Handles input binding and controls the player's character.
+ * @class ACOPlayerController
+ * @brief Player-specific controller class that handles input binding and ability activation.
+ *
+ * This controller manages both basic movement controls and the ability system,
+ * including level-specific abilities and combo inputs for Gravity Shift.
  */
-
 UCLASS()
 class CELESTIALODYSSEY_API ACOPlayerController : public APlayerController
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	//Constructor
-	ACOPlayerController();
+    /** Default constructor */
+    ACOPlayerController();
 
+    /**
+     * @brief Activates an ability from a specific slot
+     * @param Slot The slot containing the ability to activate
+     * @param Value The input value from Enhanced Input
+     */
+    void ActivateAbilityFromSlot(ECOAbilitySlot Slot, const FInputActionValue& Value);
 protected:
-	//Called when the game starts
-	virtual void BeginPlay() override;
+    /**
+     * @brief Wrapper function to activate the Dash ability from the ability slot system
+     * @param Value The input value from Enhanced Input
+     */
+    void ActivateDashAbilityWrapper(const FInputActionValue& Value)
+    {
+        ActivateAbilityFromSlot(ECOAbilitySlot::DashAbility, Value);
+    }
 
-	//Called to bind input actions
-	virtual void SetupInputComponent() override;
+    /**
+     * @brief Wrapper function to activate the Basic Attack ability from the ability slot system
+     * @param Value The input value from Enhanced Input
+     */
+    void ActivateBasicAttackWrapper(const FInputActionValue& Value)
+    {
+        ActivateAbilityFromSlot(ECOAbilitySlot::BasicAttack, Value);
+    }
 
-	// Input functions for movement, jumping, and abilities
-	void MoveRight(const FInputActionValue& Value);
-	void StartSprint(const FInputActionValue& Value);
-	void StopSprint(const FInputActionValue& Value);
-	void StartJump(const FInputActionValue& Value);
-	void StopJump(const FInputActionValue& Value);
-	void StartCrouch(const FInputActionValue& Value);
-	void StopCrouch(const FInputActionValue& Value);
-	void ActivateDashAbility(const FInputActionValue& Value);
-	void ActivateGroundSlamAbility(const FInputActionValue& Value);
-	void ActivateGravityShiftAbility(const FInputActionValue& Value);
-	void ActivateCosmicStrikeAbility(const FInputActionValue& Value);
-	void ActivateCrystalGrowthAbility(const FInputActionValue& Value);
-	void ActivateCrystalShatterAbility(const FInputActionValue& Value);
-	void ActivateVineWhipAbility(const FInputActionValue& Value);
-	void ActivateLunarForestFuryAbility(const FInputActionValue& Value);
-	void HandleGroundSlamOrCrouch(const FInputActionValue& Value);
-	void OnGamepadShoulderLeftPressed(const FInputActionValue& Value);
-	void OnGamepadShoulderLeftReleased(const FInputActionValue& Value);
-	void OnGamepadShoulderRightPressed(const FInputActionValue& Value);
-	void OnGamepadShoulderRightReleased(const FInputActionValue& Value);
-	void CheckForGravityShift();
+    /** @brief Called when the game starts */
+    virtual void BeginPlay() override;
 
-	//Input Mapping Context for Player
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputMappingContext* PlayerInputMappingContext;
+    /** @brief Sets up input bindings */
+    virtual void SetupInputComponent() override;
 
-	// Boolean to track if the left gamepad shoulder button is pressed 
-	bool bGamepadShoulderLeftPressed = false;
+    // Movement Input Handlers
+    /** @brief Handles horizontal movement input */
+    void MoveRight(const FInputActionValue& Value);
 
-	// Boolean to track if the right gamepad shoulder button is pressed 
-	bool bGamepadShoulderRightPressed = false;
+    /** @brief Initiates sprint movement */
+    void StartSprint(const FInputActionValue& Value);
 
-	//Input Actions
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* MoveRightAction;
+    /** @brief Ends sprint movement */
+    void StopSprint(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* JumpAction;
+    /** @brief Initiates jump */
+    void StartJump(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	UInputAction* CrouchOrGroundSlamAction;
+    /** @brief Ends jump */
+    void StopJump(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* SprintAction;
+    /** @brief Initiates crouch */
+    void StartCrouch(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category ="Input")
-	UInputAction* DashAction;
+    /** @brief Ends crouch */
+    void StopCrouch(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* GravityShiftAction;
+    /** @brief Handles ground slam or crouch based on character state */
+    void HandleGroundSlamOrCrouch(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* CosmicStrikeAction;
+    // Ability Input Handlers
+    /** @brief Handles primary ability input (Q/L1) */
+    void HandlePrimaryAbility(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* CrystalGrowthAction;
+    /** @brief Handles secondary ability input (R/R1) */
+    void HandleSecondaryAbility(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* CrystalShatterAction;
+    /** @brief Handles combo ability input (Q+R/L1+R1) */
+    void HandleComboAbility(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* VineWhipAction;
+    // Input State Management
+    /** @brief Checks for gravity shift combo activation */
+    bool CheckForGravityShift();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* LunarForestFuryAction;
+    /** @brief Resets shoulder button states */
+    void ResetShoulderButtonStates();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* GamepadShoulderLeftAction;
+    /** @brief Updates input mappings when changing levels */
+    void UpdateInputMappingForCurrentLevel();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* GamepadShoulderRightAction;
+    /**
+     * @brief Processes any pending ability activation
+     *
+     * This function is called after the combo time window expires to activate
+     * any pending single-button ability if no combo was detected.
+     */
+    void ProcessPendingAbility();
+
+    /**
+     * @brief Checks if both buttons were pressed within the combo time window
+     *
+     * @return true if both buttons were pressed within ComboTimeWindow seconds of each other
+     */
+    bool CheckForSimultaneousPress();
+
+    // Level Properties
+    /** @brief Current level identifier */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level")
+    int32 CurrentLevel;
+
+    /** @brief Level constants */
+    static constexpr int32 EnchantedMoonLevel = 1;
+    static constexpr int32 CrystallineCaveLevel = 2;
+
+    // Input Contexts
+    /** @brief General input mapping context */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+    UInputMappingContext* GeneralInputMappingContext;
+
+    // Input State Tracking
+    /** @brief Tracks left shoulder button state */
+    bool bGamepadShoulderLeftPressed = false;
+
+    /** @brief Tracks right shoulder button state */
+    bool bGamepadShoulderRightPressed = false;
+
+    // Input Actions
+    /** @brief Movement right/left */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* MoveRightAction;
+
+    /** @brief Jump action */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* JumpAction;
+
+    /** @brief Crouch/Ground slam action */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+    UInputAction* CrouchOrGroundSlamAction;
+
+    /** @brief Sprint action */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* SprintAction;
+
+    /** @brief Dash ability action */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* DashAction;
+
+    /** @brief Basic attack action */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* CosmicStrikeAction;
+
+    /** @brief Left shoulder button action */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* GamepadShoulderLeftAction;
+
+    /** @brief Right shoulder button action */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* GamepadShoulderRightAction;
+
+    /** Time of last left shoulder button/Q key press */
+    float LastShoulderLeftPressTime;
+
+    /** Time of last right shoulder button/R key press */
+    float LastShoulderRightPressTime;
+
+    /** Time window in seconds for detecting simultaneous button presses */
+    static constexpr float ComboTimeWindow = 0.2f;
+
+    /** Tracks if an ability activation is currently pending */
+    bool bIsAbilityActivationPending;
+
+    /** Stores the type of ability pending activation */
+    ECOAbilitySlot PendingAbilitySlot;
 };
